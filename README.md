@@ -35,7 +35,69 @@
    - Env or **.env**: see **.env.example** for `MCP_DB_POSTGRES_URI` and `MCP_DB_SQLSERVER_URI`. The server loads `.env` from its working directory if present; otherwise export in your shell.
    - Optional file: `~/.localdb-mcp/config.yaml` with `connections: { postgres: "uri", sqlserver: "uri" }`. Env overrides file.
 
-3. **Add to your MCP client** — In Cursor (or your client) MCP settings, add a server with command `./localdb-mcp` or `go run ./cmd/server` (from repo root). Do not put credentials in the client config; the server reads env/file.
+3. **Add to your MCP client** — See below for configuration examples.
+
+## Client Configuration
+
+### Cursor
+
+Go to **Settings** > **Features** > **MCP Servers** > **+ Add new MCP server**:
+
+- **Name:** `localdb` (or any name)
+- **Type:** `command`
+- **Command:** Absolute path to your binary (e.g. `/Users/me/dev/localdb-mcp/localdb-mcp`) or `go run ...`
+- **Args:** (leave empty if using binary, or use `run /path/to/cmd/server` if using `go`)
+
+Or manually edit `.cursor/mcp.json` (if project-specific):
+
+```json
+{
+  "mcpServers": {
+    "localdb": {
+      "command": "/Users/me/dev/localdb-mcp/localdb-mcp",
+      "args": [],
+      "env": {
+        "MCP_DB_POSTGRES_URI": "postgres://user:pass@localhost:5432/db",
+        "MCP_DB_SQLSERVER_URI": "sqlserver://sa:Pass@localhost:1433"
+      }
+    }
+  }
+}
+```
+
+> **Note:** Cursor can also read the `.env` file in the server's working directory if you run it from there, but setting environment variables explicitly in the config is often more reliable.
+
+### Claude Desktop
+
+Edit your configuration file:
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "localdb": {
+      "command": "/Users/me/dev/localdb-mcp/localdb-mcp",
+      "env": {
+         "MCP_DB_POSTGRES_URI": "postgres://user:pass@localhost:5432/db"
+      }
+    }
+  }
+}
+```
+
+### VS Code (Generic MCP Extension)
+
+If using an MCP extension in VS Code, you typically add it to `.vscode/settings.json` or the extension's specific config:
+
+```json
+"mcp.servers": {
+  "localdb": {
+    "command": "/path/to/localdb-mcp",
+    "transport": "stdio"
+  }
+}
+```
 
 ## Tools
 
