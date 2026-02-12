@@ -84,6 +84,10 @@ go run ./cmd/mcpclient insert_test_row '{"connection_id":"postgres","table":"use
 - `internal/server` — MCP server and tool registration
 - `internal/db` — Driver interface, Postgres/SQL Server implementations, connection manager
 
+## Contributing
+
+Contributions are welcome. Please open an issue to discuss larger changes, or send a pull request for bug fixes and small improvements. By contributing, you agree that your submissions will be licensed under the same [MIT](LICENSE) terms as this project.
+
 ## License
 
 [MIT](LICENSE). Use at your own risk; see Disclaimer above.
