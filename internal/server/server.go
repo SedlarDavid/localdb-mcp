@@ -85,9 +85,59 @@ func New(cfg *config.Config) *mcp.Server {
 			}
 			return nil, DescribeTableOutput{Columns: cols}, nil
 		})
-	}
 
-	// TODO: run_query, insert_test_row (Phase 3)
+		mcp.AddTool(s, &mcp.Tool{
+			Name:        "run_query",
+			Description: "Run a read-only SQL query (SELECT only). Rejects INSERT/UPDATE/DELETE/DDL. Params are positional.",
+		}, func(ctx context.Context, req *mcp.CallToolRequest, in RunQueryInput) (*mcp.CallToolResult, RunQueryOutput, error) {
+			if in.ConnectionID == "" {
+				return nil, RunQueryOutput{}, fmt.Errorf("connection_id is required")
+			}
+			if in.SQL == "" {
+				return nil, RunQueryOutput{}, fmt.Errorf("sql is required")
+			}
+			if err := ValidateReadOnlySQL(in.SQL); err != nil {
+				return nil, RunQueryOutput{}, err
+			}
+			driver, err := mgr.Driver(ctx, in.ConnectionID)
+			if err != nil {
+				return nil, RunQueryOutput{}, err
+			}
+			rows, err := driver.RunReadOnlyQuery(ctx, in.SQL, in.Params)
+			if err != nil {
+				return nil, RunQueryOutput{}, err
+			}
+			return nil, RunQueryOutput{Rows: rows}, nil
+		})
+
+		mcp.AddTool(s, &mcp.Tool{
+			Name:        "insert_test_row",
+			Description: "Insert a single test row. Optionally return generated ID (e.g. serial/identity).",
+		}, func(ctx context.Context, req *mcp.CallToolRequest, in InsertTestRowInput) (*mcp.CallToolResult, InsertTestRowOutput, error) {
+			if in.ConnectionID == "" {
+				return nil, InsertTestRowOutput{}, fmt.Errorf("connection_id is required")
+			}
+			if in.Table == "" {
+				return nil, InsertTestRowOutput{}, fmt.Errorf("table is required")
+			}
+			if len(in.Row) == 0 {
+				return nil, InsertTestRowOutput{}, fmt.Errorf("row is required (object with column names and values)")
+			}
+			driver, err := mgr.Driver(ctx, in.ConnectionID)
+			if err != nil {
+				return nil, InsertTestRowOutput{}, err
+			}
+			id, err := driver.InsertRow(ctx, in.Schema, in.Table, in.Row)
+			if err != nil {
+				return nil, InsertTestRowOutput{}, err
+			}
+			out := InsertTestRowOutput{}
+			if in.ReturnID && id != nil {
+				out.InsertedID = id
+			}
+			return nil, out, nil
+		})
+	}
 
 	return s
 }
@@ -123,4 +173,30 @@ type DescribeTableInput struct {
 // DescribeTableOutput is the result of describe_table.
 type DescribeTableOutput struct {
 	Columns []db.ColumnInfo `json:"columns"`
+}
+
+// RunQueryInput is the input for run_query.
+type RunQueryInput struct {
+	ConnectionID string `json:"connection_id"`
+	SQL          string `json:"sql"`
+	Params       []any  `json:"params,omitempty"`
+}
+
+// RunQueryOutput is the result of run_query.
+type RunQueryOutput struct {
+	Rows []map[string]any `json:"rows"`
+}
+
+// InsertTestRowInput is the input for insert_test_row.
+type InsertTestRowInput struct {
+	ConnectionID string            `json:"connection_id"`
+	Schema       string            `json:"schema,omitempty"`
+	Table        string            `json:"table"`
+	Row          map[string]any `json:"row"`
+	ReturnID     bool              `json:"return_id,omitempty"`
+}
+
+// InsertTestRowOutput is the result of insert_test_row.
+type InsertTestRowOutput struct {
+	InsertedID any `json:"inserted_id,omitempty"`
 }

@@ -39,8 +39,8 @@ Local MCP server that gives AI agents (e.g. Cursor) access to your databases **w
 | `list_connections` | ✅ Returns `{"connections":[{"id":"postgres","type":"postgres"},...]}` (no credentials) |
 | `list_tables` | ✅ `connection_id`, optional `schema` → `{"tables":["..."]}` |
 | `describe_table` | ✅ `connection_id`, `table`, optional `schema` → columns (name, type, nullable, is_pk) |
-| `run_query` (read-only) | 🔜 |
-| `insert_test_row` | 🔜 |
+| `run_query` (read-only) | ✅ `connection_id`, `sql`, optional `params` → `{"rows":[...]}`. Rejects INSERT/UPDATE/DELETE/DDL. |
+| `insert_test_row` | ✅ `connection_id`, `table`, `row`, optional `schema`, `return_id` → optional `inserted_id` |
 
 ## Safety
 
@@ -54,6 +54,8 @@ go run ./cmd/mcpclient ping
 go run ./cmd/mcpclient list_connections
 go run ./cmd/mcpclient list_tables '{"connection_id":"postgres"}'
 go run ./cmd/mcpclient describe_table '{"connection_id":"postgres","table":"users"}'
+go run ./cmd/mcpclient run_query '{"connection_id":"postgres","sql":"SELECT 1"}'
+go run ./cmd/mcpclient insert_test_row '{"connection_id":"postgres","table":"users","row":{"name":"Test"}}'
 ```
 
 ## Layout
