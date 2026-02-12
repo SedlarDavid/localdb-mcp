@@ -24,7 +24,7 @@ Local MCP server that gives AI agents (e.g. Cursor) access to your databases **w
 
    Or: `go run ./cmd/server`
 
-2. **Configure** (optional for `ping` and `list_connections`; needed for DB tools like `list_tables`)
+2. **Configure** (optional for `ping` and `list_connections`; needed for `list_tables`, `describe_table`, etc.)
 
    - Env or **.env**: see **.env.example** for `MCP_DB_POSTGRES_URI` and `MCP_DB_SQLSERVER_URI`. The server loads `.env` from its working directory if present; otherwise export in your shell.
    - Optional file: `~/.localdb-mcp/config.yaml` with `connections: { postgres: "uri", sqlserver: "uri" }`. Env overrides file.
@@ -37,8 +37,8 @@ Local MCP server that gives AI agents (e.g. Cursor) access to your databases **w
 |------|--------|
 | `ping` | ✅ Health check → `{"message":"pong"}` |
 | `list_connections` | ✅ Returns `{"connections":[{"id":"postgres","type":"postgres"},...]}` (no credentials) |
-| `list_tables` | 🔜 |
-| `describe_table` | 🔜 |
+| `list_tables` | ✅ `connection_id`, optional `schema` → `{"tables":["..."]}` |
+| `describe_table` | ✅ `connection_id`, `table`, optional `schema` → columns (name, type, nullable, is_pk) |
 | `run_query` (read-only) | 🔜 |
 | `insert_test_row` | 🔜 |
 
@@ -51,8 +51,9 @@ Read-only by default; `run_query` will allow only SELECT. Writes only via `inser
 ```bash
 go test ./...
 go run ./cmd/mcpclient ping
-go run ./cmd/mcpclient list_connections   # needs MCP_DB_* in env or .env
-go run ./cmd/mcpclient <tool> [json_args] # e.g. list_tables '{"connection_id":"postgres"}' (when implemented)
+go run ./cmd/mcpclient list_connections
+go run ./cmd/mcpclient list_tables '{"connection_id":"postgres"}'
+go run ./cmd/mcpclient describe_table '{"connection_id":"postgres","table":"users"}'
 ```
 
 ## Layout

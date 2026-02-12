@@ -35,6 +35,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "invalid json arguments: %v\n", err)
 			os.Exit(1)
 		}
+	} else if toolNeedsArgs(toolName) {
+		fmt.Fprintf(os.Stderr, "%s requires JSON arguments.\n", toolName)
+		fmt.Fprintf(os.Stderr, "  go run ./cmd/mcpclient %s '{\"connection_id\":\"postgres\"}'\n", toolName)
+		if toolName == "describe_table" {
+			fmt.Fprintf(os.Stderr, "  go run ./cmd/mcpclient %s '{\"connection_id\":\"postgres\",\"table\":\"users\"}'\n", toolName)
+		}
+		os.Exit(1)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -90,10 +97,21 @@ func main() {
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "call tool: %v\n", err)
+		if toolNeedsArgs(toolName) && (len(os.Args) < 3 || os.Args[2] == "") {
+			fmt.Fprintf(os.Stderr, "Hint: go run ./cmd/mcpclient %s '{\"connection_id\":\"postgres\"}'\n", toolName)
+		}
 		os.Exit(1)
 	}
 	if res.IsError {
-		fmt.Fprintf(os.Stderr, "tool error: %v\n", res.GetError())
+		msg := "tool failed"
+		if err := res.GetError(); err != nil {
+			msg = err.Error()
+		} else if len(res.Content) > 0 {
+			if tc, ok := res.Content[0].(*mcp.TextContent); ok && tc.Text != "" {
+				msg = tc.Text
+			}
+		}
+		fmt.Fprintf(os.Stderr, "tool error: %s\n", msg)
 		os.Exit(1)
 	}
 	text := ""
@@ -103,6 +121,15 @@ func main() {
 		}
 	}
 	fmt.Println(text)
+}
+
+func toolNeedsArgs(tool string) bool {
+	switch tool {
+	case "list_tables", "describe_table", "run_query", "insert_test_row":
+		return true
+	default:
+		return false
+	}
 }
 
 func findRepoRoot() (string, error) {
