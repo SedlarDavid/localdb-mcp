@@ -1,0 +1,37 @@
+# Binaries
+/server
+/localdb-mcp
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+/vendor/
+*.test
+*.out
+/coverage.txt
+/coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config (never commit real credentials)
+.env
+config.yaml
+*.local.yaml
+
+# Build / tmp
+/tmp/
+/dist/
+
+*.agent.md
