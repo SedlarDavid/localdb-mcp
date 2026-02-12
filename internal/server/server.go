@@ -12,7 +12,7 @@ import (
 
 const (
 	ServerName    = "localdb-mcp"
-	ServerVersion = "0.1.0"
+	ServerVersion = "1.0.0"
 )
 
 // New returns an MCP server with all tools registered. cfg may be nil (only

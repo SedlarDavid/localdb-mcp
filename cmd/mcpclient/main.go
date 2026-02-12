@@ -83,7 +83,7 @@ func main() {
 		Writer: stdinPipe,
 	}
 
-	client := mcp.NewClient(&mcp.Implementation{Name: "mcpclient", Version: "0.1.0"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: "mcpclient", Version: "1.0.0"}, nil)
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "connect: %v\n", err)
