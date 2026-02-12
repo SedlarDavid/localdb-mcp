@@ -24,9 +24,9 @@ Local MCP server that gives AI agents (e.g. Cursor) access to your databases **w
 
    Or: `go run ./cmd/server`
 
-2. **Configure** (optional for `ping`; needed for DB tools later)
+2. **Configure** (optional for `ping` and `list_connections`; needed for DB tools like `list_tables`)
 
-   - Env: see **.env.example** for `MCP_DB_POSTGRES_URI` and `MCP_DB_SQLSERVER_URI`. Export or copy to `.env` and source.
+   - Env or **.env**: see **.env.example** for `MCP_DB_POSTGRES_URI` and `MCP_DB_SQLSERVER_URI`. The server loads `.env` from its working directory if present; otherwise export in your shell.
    - Optional file: `~/.localdb-mcp/config.yaml` with `connections: { postgres: "uri", sqlserver: "uri" }`. Env overrides file.
 
 3. **Cursor** — In MCP settings, add a server with command `./localdb-mcp` or `go run ./cmd/server` (from repo root). No credentials in Cursor; server reads env/file.
@@ -36,7 +36,7 @@ Local MCP server that gives AI agents (e.g. Cursor) access to your databases **w
 | Tool | Status |
 |------|--------|
 | `ping` | ✅ Health check → `{"message":"pong"}` |
-| `list_connections` | 🔜 |
+| `list_connections` | ✅ Returns `{"connections":[{"id":"postgres","type":"postgres"},...]}` (no credentials) |
 | `list_tables` | 🔜 |
 | `describe_table` | 🔜 |
 | `run_query` (read-only) | 🔜 |
@@ -50,15 +50,18 @@ Read-only by default; `run_query` will allow only SELECT. Writes only via `inser
 
 ```bash
 go test ./...
-go run ./cmd/mcpclient <tool> [json_args]   # e.g. ping, or list_tables '{"connection_id":"postgres"}'
+go run ./cmd/mcpclient ping
+go run ./cmd/mcpclient list_connections   # needs MCP_DB_* in env or .env
+go run ./cmd/mcpclient <tool> [json_args] # e.g. list_tables '{"connection_id":"postgres"}' (when implemented)
 ```
 
 ## Layout
 
 - `cmd/server` — entrypoint (stdio)
 - `cmd/mcpclient` — CLI to call any tool (spawns server, passes tool name + optional JSON args)
-- `internal/config` — env + optional config file
+- `internal/config` — env + optional `.env` (cwd) and `~/.localdb-mcp/config.yaml`
 - `internal/server` — MCP server and tool registration
+- `internal/db` — Driver interface, Postgres/SQL Server implementations, connection manager
 
 ## License
 

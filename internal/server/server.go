@@ -28,8 +28,18 @@ func New(cfg *config.Config) *mcp.Server {
 		return nil, PingOutput{Message: "pong"}, nil
 	})
 
-	// TODO: list_connections, list_tables, describe_table, run_query, insert_test_row (Phase 3)
-	_ = cfg
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_connections",
+		Description: "List configured database connection IDs and their types (postgres, sqlserver). No credentials in response.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, ListConnectionsOutput, error) {
+		out := ListConnectionsOutput{Connections: nil}
+		if cfg != nil {
+			out.Connections = cfg.ConnectionInfos()
+		}
+		return nil, out, nil
+	})
+
+	// TODO: list_tables, describe_table, run_query, insert_test_row (Phase 3)
 
 	return s
 }
@@ -37,4 +47,9 @@ func New(cfg *config.Config) *mcp.Server {
 // PingOutput is the structured result of the ping tool.
 type PingOutput struct {
 	Message string `json:"message"`
+}
+
+// ListConnectionsOutput is the result of list_connections.
+type ListConnectionsOutput struct {
+	Connections []config.ConnectionInfo `json:"connections"`
 }

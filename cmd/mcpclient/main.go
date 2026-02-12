@@ -48,6 +48,7 @@ func main() {
 
 	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/server")
 	cmd.Dir = repoRoot
+	cmd.Env = os.Environ() // pass through so server sees MCP_DB_* etc.
 	cmd.Stderr = os.Stderr
 
 	stdinPipe, err := cmd.StdinPipe()

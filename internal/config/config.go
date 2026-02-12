@@ -4,9 +4,11 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -41,9 +43,12 @@ type ConnectionInfo struct {
 }
 
 // Load reads configuration from the environment and, if present,
-// ~/.localdb-mcp/config.yaml. Env vars override file values for the
-// same connection ID.
+// a .env file in the current directory and ~/.localdb-mcp/config.yaml.
+// Env vars override .env and file values for the same connection ID.
 func Load() (*Config, error) {
+	// 0) Optional .env in cwd (so server sees MCP_DB_* when run via mcpclient or from project root)
+	loadEnvFile(".")
+
 	c := &Config{connections: make(map[string]connectionEntry)}
 
 	// 1) Optional config file (base)
@@ -69,6 +74,40 @@ func Load() (*Config, error) {
 		return c, nil
 	}
 	return c, nil
+}
+
+// loadEnvFile reads .env from dir and sets env vars for any key not already set.
+func loadEnvFile(dir string) {
+	path := filepath.Join(dir, ".env")
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		idx := strings.Index(line, "=")
+		if idx <= 0 {
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		if key == "" {
+			continue
+		}
+		if strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`) {
+			val = strings.Trim(val, `"`)
+		} else if strings.HasPrefix(val, "'") && strings.HasSuffix(val, "'") {
+			val = strings.Trim(val, "'")
+		}
+		if os.Getenv(key) == "" {
+			_ = os.Setenv(key, val)
+		}
+	}
 }
 
 func configFilePath() (string, error) {
@@ -150,4 +189,13 @@ func (c *Config) URI(id string) (uri string, ok bool) {
 func (c *Config) HasConnection(id string) bool {
 	_, ok := c.connections[id]
 	return ok
+}
+
+// Type returns the database type for the connection ID ("postgres" or "sqlserver"). ok is false if ID is not configured.
+func (c *Config) Type(id string) (typ string, ok bool) {
+	e, ok := c.connections[id]
+	if !ok {
+		return "", false
+	}
+	return e.Type, true
 }
