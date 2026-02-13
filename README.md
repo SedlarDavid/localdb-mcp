@@ -1,6 +1,6 @@
 # localdb-mcp
 
-**v1.0.0** — Local [MCP](https://modelcontextprotocol.io/) server that gives AI agents and LLMs (e.g. Cursor, Claude Code, other MCP clients) access to your databases **without exposing credentials** to the model. The server runs on your machine, reads connection details from env or config, and exposes tools: list tables, describe table, read-only query, insert test row. Agents call tools by name; connection strings stay in the server process.
+**v1.0.1** — Local [MCP](https://modelcontextprotocol.io/) server that gives AI agents and LLMs (e.g. Cursor, Claude Code, other MCP clients) access to your databases **without exposing credentials** to the model. The server runs on your machine, reads connection details from env or config, and exposes tools: list tables, describe table, read-only query, insert test row. Agents call tools by name; connection strings stay in the server process.
 
 ## Use with agents / LLMs
 

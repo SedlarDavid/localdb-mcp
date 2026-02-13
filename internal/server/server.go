@@ -3,143 +3,213 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/SedlarDavid/localdb-mcp/internal/config"
 	"github.com/SedlarDavid/localdb-mcp/internal/db"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 const (
 	ServerName    = "localdb-mcp"
-	ServerVersion = "1.0.0"
+	ServerVersion = "1.0.1"
 )
 
-// New returns an MCP server with all tools registered. cfg may be nil (only
-// ping works without config); pass loaded config for list_connections and DB tools.
-func New(cfg *config.Config) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{
-		Name:    ServerName,
-		Version: ServerVersion,
-	}, nil)
-
+// Register registers tools to the MCP server.
+func Register(s *server.MCPServer, cfg *config.Config) {
 	var mgr *db.Manager
 	if cfg != nil {
 		mgr = db.NewManager(cfg)
 	}
 
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "ping",
-		Description: "Simple health check. Returns pong.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, PingOutput, error) {
-		return nil, PingOutput{Message: "pong"}, nil
+	// Ping
+	s.AddTool(mcp.NewTool("ping",
+		mcp.WithDescription("Simple health check. Returns pong."),
+	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return mcp.NewToolResultJSON(PingOutput{Message: "pong"})
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_connections",
-		Description: "List configured database connection IDs and their types (postgres, sqlserver). No credentials in response.",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, ListConnectionsOutput, error) {
+	// List Connections
+	s.AddTool(mcp.NewTool("list_connections",
+		mcp.WithDescription("List configured database connection IDs and their types (postgres, sqlserver). No credentials in response."),
+	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		out := ListConnectionsOutput{Connections: nil}
 		if cfg != nil {
 			out.Connections = cfg.ConnectionInfos()
 		}
-		return nil, out, nil
+		return mcp.NewToolResultJSON(out)
 	})
 
 	if mgr != nil {
-		mcp.AddTool(s, &mcp.Tool{
-			Name:        "list_tables",
-			Description: "List table names in a given connection and optional schema.",
-		}, func(ctx context.Context, req *mcp.CallToolRequest, in ListTablesInput) (*mcp.CallToolResult, ListTablesOutput, error) {
-			if in.ConnectionID == "" {
-				return nil, ListTablesOutput{}, fmt.Errorf("connection_id is required")
+		// List Tables
+		s.AddTool(mcp.NewTool("list_tables",
+			mcp.WithDescription("List table names in a given connection and optional schema."),
+			mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID")),
+			mcp.WithString("schema", mcp.Description("Schema (optional)")),
+		), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args, ok := request.Params.Arguments.(map[string]any)
+			if !ok {
+				return mcp.NewToolResultError("invalid arguments"), nil
 			}
-			driver, err := mgr.Driver(ctx, in.ConnectionID)
+			
+			connID, ok := args["connection_id"].(string)
+			if !ok {
+				return mcp.NewToolResultError("connection_id is required"), nil
+			}
+			schema, _ := args["schema"].(string)
+
+			driver, err := mgr.Driver(ctx, connID)
 			if err != nil {
-				return nil, ListTablesOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
-			tables, err := driver.ListTables(ctx, in.Schema)
+			tables, err := driver.ListTables(ctx, schema)
 			if err != nil {
-				return nil, ListTablesOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
-			return nil, ListTablesOutput{Tables: tables}, nil
+
+			return mcp.NewToolResultJSON(ListTablesOutput{Tables: tables})
 		})
 
-		mcp.AddTool(s, &mcp.Tool{
-			Name:        "describe_table",
-			Description: "Describe columns of a table (name, type, nullable, primary key).",
-		}, func(ctx context.Context, req *mcp.CallToolRequest, in DescribeTableInput) (*mcp.CallToolResult, DescribeTableOutput, error) {
-			if in.ConnectionID == "" {
-				return nil, DescribeTableOutput{}, fmt.Errorf("connection_id is required")
+		// Describe Table
+		s.AddTool(mcp.NewTool("describe_table",
+			mcp.WithDescription("Describe columns of a table (name, type, nullable, primary key)."),
+			mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID")),
+			mcp.WithString("table", mcp.Required(), mcp.Description("Table name")),
+			mcp.WithString("schema", mcp.Description("Schema (optional)")),
+		), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args, ok := request.Params.Arguments.(map[string]any)
+			if !ok {
+				return mcp.NewToolResultError("invalid arguments"), nil
 			}
-			if in.Table == "" {
-				return nil, DescribeTableOutput{}, fmt.Errorf("table is required")
+
+			connID, ok := args["connection_id"].(string)
+			if !ok {
+				return mcp.NewToolResultError("connection_id is required"), nil
 			}
-			driver, err := mgr.Driver(ctx, in.ConnectionID)
+			table, ok := args["table"].(string)
+			if !ok {
+				return mcp.NewToolResultError("table is required"), nil
+			}
+			schema, _ := args["schema"].(string)
+
+			driver, err := mgr.Driver(ctx, connID)
 			if err != nil {
-				return nil, DescribeTableOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
-			cols, err := driver.DescribeTable(ctx, in.Schema, in.Table)
+			cols, err := driver.DescribeTable(ctx, schema, table)
 			if err != nil {
-				return nil, DescribeTableOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
-			return nil, DescribeTableOutput{Columns: cols}, nil
+
+			return mcp.NewToolResultJSON(DescribeTableOutput{Columns: cols})
 		})
 
-		mcp.AddTool(s, &mcp.Tool{
-			Name:        "run_query",
-			Description: "Run a read-only SQL query (SELECT only). Rejects INSERT/UPDATE/DELETE/DDL. Params are positional.",
-		}, func(ctx context.Context, req *mcp.CallToolRequest, in RunQueryInput) (*mcp.CallToolResult, RunQueryOutput, error) {
-			if in.ConnectionID == "" {
-				return nil, RunQueryOutput{}, fmt.Errorf("connection_id is required")
+		// Run Query
+		runQueryTool := mcp.NewTool("run_query",
+			mcp.WithDescription("Run a read-only SQL query (SELECT only). Rejects INSERT/UPDATE/DELETE/DDL. Params are positional."),
+			mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID")),
+			mcp.WithString("sql", mcp.Required(), mcp.Description("SQL query")),
+		)
+		// Manually add params array to schema
+		runQueryTool.InputSchema.Properties["params"] = map[string]any{
+			"type": "array",
+			"items": map[string]any{
+				"type": []string{"string", "number", "boolean", "null"}, 
+			},
+			"description": "Positional parameters for the query",
+		}
+
+		s.AddTool(runQueryTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args, ok := request.Params.Arguments.(map[string]any)
+			if !ok {
+				return mcp.NewToolResultError("invalid arguments"), nil
 			}
-			if in.SQL == "" {
-				return nil, RunQueryOutput{}, fmt.Errorf("sql is required")
+
+			connID, ok := args["connection_id"].(string)
+			if !ok {
+				return mcp.NewToolResultError("connection_id is required"), nil
 			}
-			if err := ValidateReadOnlySQL(in.SQL); err != nil {
-				return nil, RunQueryOutput{}, err
+			sql, ok := args["sql"].(string)
+			if !ok {
+				return mcp.NewToolResultError("sql is required"), nil
 			}
-			driver, err := mgr.Driver(ctx, in.ConnectionID)
+
+			var params []any
+			if p, ok := args["params"]; ok {
+				if pList, ok := p.([]any); ok {
+					params = pList
+				}
+			}
+
+			if err := ValidateReadOnlySQL(sql); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			driver, err := mgr.Driver(ctx, connID)
 			if err != nil {
-				return nil, RunQueryOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
-			rows, err := driver.RunReadOnlyQuery(ctx, in.SQL, in.Params)
+			rows, err := driver.RunReadOnlyQuery(ctx, sql, params)
 			if err != nil {
-				return nil, RunQueryOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
-			return nil, RunQueryOutput{Rows: rows}, nil
+
+			return mcp.NewToolResultJSON(RunQueryOutput{Rows: rows})
 		})
 
-		mcp.AddTool(s, &mcp.Tool{
-			Name:        "insert_test_row",
-			Description: "Insert a single test row. Optionally return generated ID (e.g. serial/identity).",
-		}, func(ctx context.Context, req *mcp.CallToolRequest, in InsertTestRowInput) (*mcp.CallToolResult, InsertTestRowOutput, error) {
-			if in.ConnectionID == "" {
-				return nil, InsertTestRowOutput{}, fmt.Errorf("connection_id is required")
+		// Insert Test Row
+		insertRowTool := mcp.NewTool("insert_test_row",
+			mcp.WithDescription("Insert a single test row. Optionally return generated ID (e.g. serial/identity)."),
+			mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID")),
+			mcp.WithString("table", mcp.Required(), mcp.Description("Table name")),
+			mcp.WithBoolean("return_id", mcp.Description("Return generated ID")),
+			mcp.WithString("schema", mcp.Description("Schema (optional)")),
+		)
+		insertRowTool.InputSchema.Properties["row"] = map[string]any{
+			"type":                 "object",
+			"additionalProperties": true,
+			"description":          "Column names and values to insert",
+		}
+		insertRowTool.InputSchema.Required = append(insertRowTool.InputSchema.Required, "row")
+
+		s.AddTool(insertRowTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args, ok := request.Params.Arguments.(map[string]any)
+			if !ok {
+				return mcp.NewToolResultError("invalid arguments"), nil
 			}
-			if in.Table == "" {
-				return nil, InsertTestRowOutput{}, fmt.Errorf("table is required")
+
+			connID, ok := args["connection_id"].(string)
+			if !ok {
+				return mcp.NewToolResultError("connection_id is required"), nil
 			}
-			if len(in.Row) == 0 {
-				return nil, InsertTestRowOutput{}, fmt.Errorf("row is required (object with column names and values)")
+			table, ok := args["table"].(string)
+			if !ok {
+				return mcp.NewToolResultError("table is required"), nil
 			}
-			driver, err := mgr.Driver(ctx, in.ConnectionID)
+			returnID, _ := args["return_id"].(bool)
+			schema, _ := args["schema"].(string)
+
+			rowMap, ok := args["row"].(map[string]any)
+			if !ok || len(rowMap) == 0 {
+				return mcp.NewToolResultError("row is required and must be an object"), nil
+			}
+
+			driver, err := mgr.Driver(ctx, connID)
 			if err != nil {
-				return nil, InsertTestRowOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
-			id, err := driver.InsertRow(ctx, in.Schema, in.Table, in.Row)
+			id, err := driver.InsertRow(ctx, schema, table, rowMap)
 			if err != nil {
-				return nil, InsertTestRowOutput{}, err
+				return mcp.NewToolResultError(err.Error()), nil
 			}
+
 			out := InsertTestRowOutput{}
-			if in.ReturnID && id != nil {
+			if returnID && id != nil {
 				out.InsertedID = id
 			}
-			return nil, out, nil
+			return mcp.NewToolResultJSON(out)
 		})
 	}
-
-	return s
 }
 
 // PingOutput is the structured result of the ping tool.
@@ -152,22 +222,9 @@ type ListConnectionsOutput struct {
 	Connections []config.ConnectionInfo `json:"connections"`
 }
 
-// ListTablesInput is the input for list_tables.
-type ListTablesInput struct {
-	ConnectionID string `json:"connection_id"`
-	Schema       string `json:"schema,omitempty"`
-}
-
 // ListTablesOutput is the result of list_tables.
 type ListTablesOutput struct {
 	Tables []string `json:"tables"`
-}
-
-// DescribeTableInput is the input for describe_table.
-type DescribeTableInput struct {
-	ConnectionID string `json:"connection_id"`
-	Schema       string `json:"schema,omitempty"`
-	Table        string `json:"table"`
 }
 
 // DescribeTableOutput is the result of describe_table.
@@ -175,25 +232,9 @@ type DescribeTableOutput struct {
 	Columns []db.ColumnInfo `json:"columns"`
 }
 
-// RunQueryInput is the input for run_query.
-type RunQueryInput struct {
-	ConnectionID string `json:"connection_id"`
-	SQL          string `json:"sql"`
-	Params       []any  `json:"params,omitempty"`
-}
-
 // RunQueryOutput is the result of run_query.
 type RunQueryOutput struct {
 	Rows []map[string]any `json:"rows"`
-}
-
-// InsertTestRowInput is the input for insert_test_row.
-type InsertTestRowInput struct {
-	ConnectionID string            `json:"connection_id"`
-	Schema       string            `json:"schema,omitempty"`
-	Table        string            `json:"table"`
-	Row          map[string]any `json:"row"`
-	ReturnID     bool              `json:"return_id,omitempty"`
 }
 
 // InsertTestRowOutput is the result of insert_test_row.

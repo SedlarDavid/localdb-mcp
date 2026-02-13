@@ -4,31 +4,41 @@ import (
 	"context"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func TestPingTool(t *testing.T) {
 	ctx := context.Background()
-	serverTrans, clientTrans := mcp.NewInMemoryTransports()
 
-	srv := New(nil)
-	go func() {
-		_ = srv.Run(ctx, serverTrans)
-	}()
+	// Create server and register tools (nil config = only ping + list_connections)
+	s := server.NewMCPServer(ServerName, ServerVersion)
+	Register(s, nil)
 
-	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
-	session, err := client.Connect(ctx, clientTrans, nil)
+	// Create in-process client
+	c, err := client.NewInProcessClient(s)
 	if err != nil {
-		t.Fatalf("Connect: %v", err)
+		t.Fatalf("NewInProcessClient: %v", err)
 	}
-	t.Cleanup(func() { session.Close() })
+	defer c.Close()
+
+	initReq := mcp.InitializeRequest{}
+	initReq.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initReq.Params.ClientInfo = mcp.Implementation{Name: "test-client", Version: "1.0.0"}
+
+	if _, err := c.Initialize(ctx, initReq); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
 
 	// List tools and ensure ping is present
+	toolsRes, err := c.ListTools(ctx, mcp.ListToolsRequest{})
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+
 	var found bool
-	for tool, err := range session.Tools(ctx, nil) {
-		if err != nil {
-			t.Fatalf("Tools iterator: %v", err)
-		}
+	for _, tool := range toolsRes.Tools {
 		if tool.Name == "ping" {
 			found = true
 			break
@@ -39,15 +49,17 @@ func TestPingTool(t *testing.T) {
 	}
 
 	// Call ping
-	res, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "ping",
-		Arguments: nil,
+	res, err := c.CallTool(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name:      "ping",
+			Arguments: map[string]any{},
+		},
 	})
 	if err != nil {
 		t.Fatalf("CallTool(ping): %v", err)
 	}
 	if res.IsError {
-		t.Errorf("ping returned error: %v", res.GetError())
+		t.Errorf("ping returned error")
 	}
 	text := textContent(res)
 	if text != `{"message":"pong"}` {
@@ -59,7 +71,7 @@ func textContent(res *mcp.CallToolResult) string {
 	if res == nil || len(res.Content) == 0 {
 		return ""
 	}
-	if tc, ok := res.Content[0].(*mcp.TextContent); ok {
+	if tc, ok := mcp.AsTextContent(res.Content[0]); ok {
 		return tc.Text
 	}
 	return ""

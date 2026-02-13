@@ -16,11 +16,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
 )
 
 func main() {
@@ -29,19 +29,14 @@ func main() {
 		os.Exit(1)
 	}
 	toolName := os.Args[1]
-	var args any
+	var args map[string]interface{}
 	if len(os.Args) >= 3 && os.Args[2] != "" {
 		if err := json.Unmarshal([]byte(os.Args[2]), &args); err != nil {
 			fmt.Fprintf(os.Stderr, "invalid json arguments: %v\n", err)
 			os.Exit(1)
 		}
-	} else if toolNeedsArgs(toolName) {
-		fmt.Fprintf(os.Stderr, "%s requires JSON arguments.\n", toolName)
-		fmt.Fprintf(os.Stderr, "  go run ./cmd/mcpclient %s '{\"connection_id\":\"postgres\"}'\n", toolName)
-		if toolName == "describe_table" {
-			fmt.Fprintf(os.Stderr, "  go run ./cmd/mcpclient %s '{\"connection_id\":\"postgres\",\"table\":\"users\"}'\n", toolName)
-		}
-		os.Exit(1)
+	} else {
+		args = make(map[string]interface{})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -53,83 +48,63 @@ func main() {
 		os.Exit(1)
 	}
 
-	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/server")
-	cmd.Dir = repoRoot
-	cmd.Env = os.Environ() // pass through so server sees MCP_DB_* etc.
-	cmd.Stderr = os.Stderr
+	if err := os.Chdir(repoRoot); err != nil {
+		fmt.Fprintf(os.Stderr, "chdir: %v\n", err)
+		os.Exit(1)
+	}
 
-	stdinPipe, err := cmd.StdinPipe()
+	env := os.Environ()
+
+	c, err := client.NewStdioMCPClient("go", env, "run", "./cmd/server")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "stdin pipe: %v\n", err)
+		fmt.Fprintf(os.Stderr, "create client: %v\n", err)
 		os.Exit(1)
 	}
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "stdout pipe: %v\n", err)
+	defer c.Close()
+
+	initReq := mcp.InitializeRequest{}
+	initReq.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initReq.Params.ClientInfo = mcp.Implementation{
+		Name:    "mcpclient",
+		Version: "1.0.0",
+	}
+	initReq.Params.Capabilities = mcp.ClientCapabilities{}
+
+	if _, err := c.Initialize(ctx, initReq); err != nil {
+		fmt.Fprintf(os.Stderr, "initialize: %v\n", err)
 		os.Exit(1)
 	}
 
-	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "start server: %v\n", err)
-		os.Exit(1)
-	}
-	defer func() {
-		stdinPipe.Close()
-		_ = cmd.Wait()
-	}()
-
-	transport := &mcp.IOTransport{
-		Reader: stdoutPipe,
-		Writer: stdinPipe,
-	}
-
-	client := mcp.NewClient(&mcp.Implementation{Name: "mcpclient", Version: "1.0.0"}, nil)
-	session, err := client.Connect(ctx, transport, nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect: %v\n", err)
-		os.Exit(1)
-	}
-	defer session.Close()
-
-	res, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      toolName,
-		Arguments: args,
+	res, err := c.CallTool(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name:      toolName,
+			Arguments: args,
+		},
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "call tool: %v\n", err)
-		if toolNeedsArgs(toolName) && (len(os.Args) < 3 || os.Args[2] == "") {
-			fmt.Fprintf(os.Stderr, "Hint: go run ./cmd/mcpclient %s '{\"connection_id\":\"postgres\"}'\n", toolName)
-		}
 		os.Exit(1)
 	}
+
 	if res.IsError {
 		msg := "tool failed"
-		if err := res.GetError(); err != nil {
-			msg = err.Error()
-		} else if len(res.Content) > 0 {
-			if tc, ok := res.Content[0].(*mcp.TextContent); ok && tc.Text != "" {
+		for _, content := range res.Content {
+			if tc, ok := mcp.AsTextContent(content); ok {
 				msg = tc.Text
+				break
 			}
 		}
 		fmt.Fprintf(os.Stderr, "tool error: %s\n", msg)
 		os.Exit(1)
 	}
+
 	text := ""
-	if len(res.Content) > 0 {
-		if tc, ok := res.Content[0].(*mcp.TextContent); ok {
-			text = tc.Text
+	for _, content := range res.Content {
+		if tc, ok := mcp.AsTextContent(content); ok {
+			text += tc.Text
 		}
 	}
 	fmt.Println(text)
-}
-
-func toolNeedsArgs(tool string) bool {
-	switch tool {
-	case "list_tables", "describe_table", "run_query", "insert_test_row":
-		return true
-	default:
-		return false
-	}
 }
 
 func findRepoRoot() (string, error) {

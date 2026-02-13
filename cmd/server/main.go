@@ -4,27 +4,39 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
-	"os/signal"
 
 	"github.com/SedlarDavid/localdb-mcp/internal/config"
-	"github.com/SedlarDavid/localdb-mcp/internal/server"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	internal_server "github.com/SedlarDavid/localdb-mcp/internal/server"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func main() {
+	// Redirect logs to file for debugging if MCP_DEBUG is set
+	if os.Getenv("MCP_DEBUG") != "" {
+		f, err := os.OpenFile("/tmp/localdb-mcp.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err == nil {
+			log.SetOutput(f)
+			defer f.Close()
+		}
+	}
+	
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
 
-	srv := server.New(cfg)
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
+	// Create MCP server
+	s := server.NewMCPServer(
+		"localdb-mcp",
+		"1.0.1",
+	)
 
-	if err := srv.Run(ctx, &mcp.StdioTransport{}); err != nil && context.Cause(ctx) != context.Canceled {
-		log.Fatalf("server: %v", err)
+	// Register tools
+	internal_server.Register(s, cfg)
+
+	if err := server.ServeStdio(s); err != nil {
+		log.Printf("server error: %v", err)
 	}
 }
