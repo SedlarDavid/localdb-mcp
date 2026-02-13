@@ -15,7 +15,7 @@ import (
 func main() {
 	// Redirect logs to file for debugging if MCP_DEBUG is set
 	if os.Getenv("MCP_DEBUG") != "" {
-		f, err := os.OpenFile("/tmp/localdb-mcp.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, err := os.OpenFile("/tmp/localdb-mcp.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err == nil {
 			log.SetOutput(f)
 			defer f.Close()
@@ -29,8 +29,8 @@ func main() {
 
 	// Create MCP server
 	s := server.NewMCPServer(
-		"localdb-mcp",
-		"1.1.0",
+		internal_server.ServerName,
+		internal_server.ServerVersion,
 	)
 
 	// Register tools

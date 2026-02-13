@@ -5,12 +5,12 @@
 [![release](https://img.shields.io/github/v/release/SedlarDavid/localdb-mcp)](https://github.com/SedlarDavid/localdb-mcp/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/SedlarDavid/localdb-mcp)](https://goreportcard.com/report/github.com/SedlarDavid/localdb-mcp)
 
-**v1.1.0** — Local [MCP](https://modelcontextprotocol.io/) server that gives AI agents and LLMs (e.g. Cursor, Claude Code, other MCP clients) access to your databases **without exposing credentials** to the model. The server runs on your machine, reads connection details from env or config, and exposes tools: list tables, describe table, read-only query, insert test row, and update test row. Agents call tools by name; connection strings stay in the server process.
+**v1.1.0** — Local [MCP](https://modelcontextprotocol.io/) server that gives AI agents and LLMs (e.g. Cursor, Claude Code, other MCP clients) access to your databases **without exposing credentials** to the model. The server runs on your machine, reads connection details from env or config, and exposes a fixed set of tools (see [Tools](#tools) below). Agents call tools by name; connection strings stay in the server process.
 
 ## Use with agents / LLMs
 
 - **Cursor, Claude Code, or any MCP client:** Add this server in your MCP settings. The client runs the server (e.g. `./localdb-mcp` or `go run ./cmd/server`). The agent sees only tool names and JSON input/output; it never sees connection strings or credentials.
-- **Workflow:** You configure Postgres or SQL Server (e.g. in Docker) and point the server at them via env or a config file. When you ask the agent to “add test data” or “show me the schema,” it calls tools like `list_tables`, `describe_table`, `run_query`, or `insert_test_row`. The agent does not need to know host, port, user, or password.
+- **Workflow:** You configure your databases (Postgres, SQL Server, MySQL via Docker, or a local SQLite file) and point the server at them via env or config. When you ask the agent to “add test data” or “update a timestamp,” it calls tools like `list_tables`, `describe_table`, `run_query`, `insert_test_row`, or `update_test_row`. The agent does not need to know host, port, user, or password.
 - **Typical use:** Local or dev databases only — generating test data, inspecting schema, running read-only queries. Not for production (see Disclaimer below).
 
 ## Why
@@ -146,6 +146,7 @@ go run ./cmd/mcpclient list_tables '{"connection_id":"postgres"}'
 go run ./cmd/mcpclient describe_table '{"connection_id":"postgres","table":"users"}'
 go run ./cmd/mcpclient run_query '{"connection_id":"postgres","sql":"SELECT 1"}'
 go run ./cmd/mcpclient insert_test_row '{"connection_id":"postgres","table":"users","row":{"name":"Test"}}'
+go run ./cmd/mcpclient update_test_row '{"connection_id":"postgres","table":"users","key":{"id":1},"set":{"name":"Updated"}}'
 ```
 
 ## Layout
