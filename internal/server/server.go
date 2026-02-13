@@ -12,7 +12,7 @@ import (
 
 const (
 	ServerName    = "localdb-mcp"
-	ServerVersion = "1.0.1"
+	ServerVersion = "1.1.0"
 )
 
 // Register registers tools to the MCP server.
@@ -31,7 +31,7 @@ func Register(s *server.MCPServer, cfg *config.Config) {
 
 	// List Connections
 	s.AddTool(mcp.NewTool("list_connections",
-		mcp.WithDescription("List configured database connection IDs and their types (postgres, sqlserver). No credentials in response."),
+		mcp.WithDescription("List configured database connection IDs and their types (postgres, sqlserver, sqlite, mysql). No credentials in response."),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		out := ListConnectionsOutput{Connections: nil}
 		if cfg != nil {
@@ -209,6 +209,62 @@ func Register(s *server.MCPServer, cfg *config.Config) {
 			}
 			return mcp.NewToolResultJSON(out)
 		})
+
+		// Update Test Row
+		updateRowTool := mcp.NewTool("update_test_row",
+			mcp.WithDescription("Update a single row identified by its primary key. Safely enforces PK-only targeting to prevent mass updates."),
+			mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID")),
+			mcp.WithString("table", mcp.Required(), mcp.Description("Table name")),
+			mcp.WithString("schema", mcp.Description("Schema (optional)")),
+		)
+		updateRowTool.InputSchema.Properties["key"] = map[string]any{
+			"type":                 "object",
+			"additionalProperties": true,
+			"description":          "Primary key column(s) and their values to identify the row",
+		}
+		updateRowTool.InputSchema.Properties["set"] = map[string]any{
+			"type":                 "object",
+			"additionalProperties": true,
+			"description":          "Column names and new values to update",
+		}
+		updateRowTool.InputSchema.Required = append(updateRowTool.InputSchema.Required, "key", "set")
+
+		s.AddTool(updateRowTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args, ok := request.Params.Arguments.(map[string]any)
+			if !ok {
+				return mcp.NewToolResultError("invalid arguments"), nil
+			}
+
+			connID, ok := args["connection_id"].(string)
+			if !ok {
+				return mcp.NewToolResultError("connection_id is required"), nil
+			}
+			table, ok := args["table"].(string)
+			if !ok {
+				return mcp.NewToolResultError("table is required"), nil
+			}
+			schema, _ := args["schema"].(string)
+
+			keyMap, ok := args["key"].(map[string]any)
+			if !ok || len(keyMap) == 0 {
+				return mcp.NewToolResultError("key is required and must be an object with PK column(s)"), nil
+			}
+			setMap, ok := args["set"].(map[string]any)
+			if !ok || len(setMap) == 0 {
+				return mcp.NewToolResultError("set is required and must be an object with column(s) to update"), nil
+			}
+
+			driver, err := mgr.Driver(ctx, connID)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			n, err := driver.UpdateRow(ctx, schema, table, keyMap, setMap)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			return mcp.NewToolResultJSON(UpdateTestRowOutput{RowsAffected: n})
+		})
 	}
 }
 
@@ -240,4 +296,9 @@ type RunQueryOutput struct {
 // InsertTestRowOutput is the result of insert_test_row.
 type InsertTestRowOutput struct {
 	InsertedID any `json:"inserted_id,omitempty"`
+}
+
+// UpdateTestRowOutput is the result of update_test_row.
+type UpdateTestRowOutput struct {
+	RowsAffected int64 `json:"rows_affected"`
 }

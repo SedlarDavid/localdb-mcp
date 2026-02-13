@@ -10,6 +10,8 @@ import (
 var forbiddenSQLWords = []string{
 	"INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "TRUNCATE",
 	"GRANT", "REVOKE", "EXEC", "EXECUTE", "MERGE", "REPLACE",
+	"COPY", "LOAD", "ATTACH", "DETACH", "CALL", "DO",
+	"VACUUM", "REINDEX", "PRAGMA",
 }
 
 var (

@@ -178,6 +178,62 @@ func (d *SQLServerDriver) InsertRow(ctx context.Context, schema, table string, r
 	return nil, nil
 }
 
+// UpdateRow implements Driver. Validates key matches actual PK, then updates a single row.
+func (d *SQLServerDriver) UpdateRow(ctx context.Context, schema, table string, key map[string]any, set map[string]any) (int64, error) {
+	if schema == "" {
+		schema = "dbo"
+	}
+	if len(key) == 0 {
+		return 0, fmt.Errorf("update row: key must contain at least one column")
+	}
+	if len(set) == 0 {
+		return 0, fmt.Errorf("update row: set must contain at least one column")
+	}
+
+	// Fetch actual PK columns and validate the provided key matches.
+	if err := validatePKColumns(ctx, d, schema, table, key); err != nil {
+		return 0, err
+	}
+
+	// Build SET clause: [col1] = @p1, [col2] = @p2, ...
+	setCols, setVals := mapsToColumnsAndValues(set)
+	quotedSets := make([]string, len(setCols))
+	for i, c := range setCols {
+		quotedSets[i] = fmt.Sprintf("%s = @p%d", quoteMSSQLIdentifier(c), i+1)
+	}
+
+	// Build WHERE clause: [pk1] = @pN AND [pk2] = @pN+1, ...
+	keyCols, keyVals := mapsToColumnsAndValues(key)
+	quotedWheres := make([]string, len(keyCols))
+	for i, c := range keyCols {
+		quotedWheres[i] = fmt.Sprintf("%s = @p%d", quoteMSSQLIdentifier(c), len(setCols)+i+1)
+	}
+
+	quotedTable := quoteMSSQLIdentifier(schema) + "." + quoteMSSQLIdentifier(table)
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s",
+		quotedTable,
+		strings.Join(quotedSets, ", "),
+		strings.Join(quotedWheres, " AND "),
+	)
+
+	params := make([]any, 0, len(setVals)+len(keyVals))
+	params = append(params, setVals...)
+	params = append(params, keyVals...)
+
+	result, err := d.db.ExecContext(ctx, query, params...)
+	if err != nil {
+		return 0, err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if n == 0 {
+		return 0, fmt.Errorf("update row: no row found with the given key")
+	}
+	return n, nil
+}
+
 func makeMSSQLPlaceholders(n int) string {
 	if n == 0 {
 		return ""

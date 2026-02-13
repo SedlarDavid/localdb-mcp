@@ -46,11 +46,19 @@ func (m *Manager) Driver(ctx context.Context, connectionID string) (Driver, erro
 		newDriver, err = NewPostgresDriver(ctx, uri)
 	case "sqlserver":
 		newDriver, err = NewSQLServerDriver(ctx, uri)
+	case "sqlite":
+		newDriver, err = NewSQLiteDriver(ctx, uri)
+	case "mysql":
+		newDriver, err = NewMySQLDriver(ctx, uri)
 	default:
 		return nil, fmt.Errorf("unsupported connection type %q for %q", typ, connectionID)
 	}
 	if err != nil {
-		return nil, err
+		// Return only a safe message — the raw error from the driver may
+		// contain the full DSN/URI (with credentials), so we must NOT
+		// log it.  Callers who need to debug connection issues should
+		// test the URI outside of the MCP server (e.g. psql, mysql CLI).
+		return nil, fmt.Errorf("failed to connect to %q (%s); verify the connection URI is correct", connectionID, typ)
 	}
 
 	m.mu.Lock()

@@ -1,0 +1,34 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose       # Check HTTP response body is closed
+    - nilerr          # Find code returning nil even if err is not nil
+    - errname         # Check error type names follow Go convention
+    - errorlint       # Find issues with error wrapping
+    - copyloopvar     # Detect loop variable capture issues
+    - gocritic        # Opinionated Go checks
+    - misspell        # Fix common misspellings
+
+  settings:
+    gocritic:
+      disabled-checks:
+        - exitAfterDefer  # CLI tools intentionally os.Exit after defer
+
+  exclusions:
+    # Built-in presets that exclude common false positives.
+    presets:
+      - std-error-handling  # Ignores unchecked Close, Flush, os.Setenv, print, etc.
+    rules:
+      # Test files: unchecked errors in setup/teardown are acceptable.
+      - linters:
+          - errcheck
+        path: '(.+)_test\.go'
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
