@@ -127,6 +127,10 @@ Read-only by default; `run_query` allows only SELECT (and read-only SQL). Writes
 
 ---
 
+## CI
+
+GitHub Actions runs on every PR to `main` and on push to `main`: build, test (`-race`), and `go vet`. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
 ## Testing
 
 ```bash
