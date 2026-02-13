@@ -46,6 +46,8 @@ func (m *Manager) Driver(ctx context.Context, connectionID string) (Driver, erro
 		newDriver, err = NewPostgresDriver(ctx, uri)
 	case "sqlserver":
 		newDriver, err = NewSQLServerDriver(ctx, uri)
+	case "sqlite":
+		newDriver, err = NewSQLiteDriver(ctx, uri)
 	default:
 		return nil, fmt.Errorf("unsupported connection type %q for %q", typ, connectionID)
 	}

@@ -12,12 +12,12 @@
 
 - Credentials only in env or `~/.localdb-mcp/config.yaml` — never in the IDE/MCP config or tool responses.
 - Fixed tool set so the agent doesn’t need host/port/user/password.
-- Supports PostgreSQL and SQL Server (e.g. in Docker) as named connections `postgres` and `sqlserver`.
+- Supports PostgreSQL, SQL Server, and SQLite as named connections `postgres`, `sqlserver`, and `sqlite`.
 
 ## Requirements
 
 - Go 1.25+
-- PostgreSQL and/or SQL Server reachable (e.g. Docker) for DB tools.
+- PostgreSQL and/or SQL Server reachable (e.g. Docker) for DB tools, or a SQLite file/`:memory:`.
 
 ## Quick start
 
@@ -32,8 +32,8 @@
 
 2. **Configure** (optional for `ping` and `list_connections`; needed for `list_tables`, `describe_table`, etc.)
 
-   - Env or **.env**: see **.env.example** for `MCP_DB_POSTGRES_URI` and `MCP_DB_SQLSERVER_URI`. The server loads `.env` from its working directory if present; otherwise export in your shell.
-   - Optional file: `~/.localdb-mcp/config.yaml` with `connections: { postgres: "uri", sqlserver: "uri" }`. Env overrides file.
+   - Env or **.env**: see **.env.example** for `MCP_DB_POSTGRES_URI`, `MCP_DB_SQLSERVER_URI`, and `MCP_DB_SQLITE_URI`. The server loads `.env` from its working directory if present; otherwise export in your shell.
+   - Optional file: `~/.localdb-mcp/config.yaml` with `connections: { postgres: "uri", sqlserver: "uri", sqlite: "/path/to/db.sqlite" }`. Env overrides file.
 
 3. **Add to your MCP client** — See below for configuration examples.
 
@@ -109,10 +109,11 @@ If using an MCP extension in VS Code, you typically add it to `.vscode/settings.
 | `describe_table` | `connection_id`, `table`, optional `schema` → columns (name, type, nullable, is_pk) |
 | `run_query` (read-only) | `connection_id`, `sql`, optional `params` → rows. Rejects INSERT/UPDATE/DELETE/DDL. |
 | `insert_test_row` | `connection_id`, `table`, `row`, optional `schema`, `return_id` → optional `inserted_id` |
+| `update_test_row` | `connection_id`, `table`, `key` (PK), `set` (values), optional `schema` → `rows_affected` |
 
 ## Safety
 
-Read-only by default; `run_query` allows only SELECT (and read-only SQL). Writes only via `insert_test_row`. No DDL. Credentials are never included in tool results or logs.
+Read-only by default; `run_query` allows only SELECT (and read-only SQL). Writes only via `insert_test_row` and `update_test_row`. `update_test_row` enforces primary-key-only targeting — it validates that the `key` columns match the table's actual PK to prevent mass updates. No DDL. Credentials are never included in tool results or logs.
 
 ---
 
@@ -144,7 +145,7 @@ go run ./cmd/mcpclient insert_test_row '{"connection_id":"postgres","table":"use
 - `cmd/mcpclient` — CLI to call any tool (for testing)
 - `internal/config` — env + optional `.env` (cwd) and `~/.localdb-mcp/config.yaml`
 - `internal/server` — MCP server and tool registration
-- `internal/db` — Driver interface, Postgres/SQL Server implementations, connection manager
+- `internal/db` — Driver interface, Postgres/SQL Server/SQLite implementations, connection manager
 
 ## Contributing
 

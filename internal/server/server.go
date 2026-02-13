@@ -31,7 +31,7 @@ func Register(s *server.MCPServer, cfg *config.Config) {
 
 	// List Connections
 	s.AddTool(mcp.NewTool("list_connections",
-		mcp.WithDescription("List configured database connection IDs and their types (postgres, sqlserver). No credentials in response."),
+		mcp.WithDescription("List configured database connection IDs and their types (postgres, sqlserver, sqlite). No credentials in response."),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		out := ListConnectionsOutput{Connections: nil}
 		if cfg != nil {
