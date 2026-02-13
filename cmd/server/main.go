@@ -30,7 +30,7 @@ func main() {
 	// Create MCP server
 	s := server.NewMCPServer(
 		"localdb-mcp",
-		"1.0.1",
+		"1.1.0",
 	)
 
 	// Register tools

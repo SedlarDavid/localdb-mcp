@@ -12,7 +12,7 @@ import (
 
 const (
 	ServerName    = "localdb-mcp"
-	ServerVersion = "1.0.1"
+	ServerVersion = "1.1.0"
 )
 
 // Register registers tools to the MCP server.

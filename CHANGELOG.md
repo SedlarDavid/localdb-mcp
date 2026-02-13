@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-02-13
+
+### Added
+
+- **`update_test_row` tool.** Safely update a single row by primary key.
+  Structurally enforces PK-only targeting — validates that the provided key
+  columns match the table's actual primary key to prevent mass updates.
+  Returns `rows_affected` count.
+- **SQLite support.** New `sqlite` connection type using modernc.org/sqlite
+  (pure Go, no CGO). Configure via `MCP_DB_SQLITE_URI` env var. Supports
+  file paths, URIs, and `:memory:` for in-memory databases.
+- **MySQL support.** New `mysql` connection type using go-sql-driver/mysql.
+  Configure via `MCP_DB_MYSQL_URI` env var with DSN format
+  (`user:pass@tcp(host:port)/db`).
+- **CI pipeline.** GitHub Actions workflow runs build, test (with `-race`),
+  and `go vet` on every PR to `main` and push to `main`.
+- Comprehensive test suite for `validatePKColumns` (7 cases) and SQLite
+  integration tests (9 cases covering all Driver methods).
+
+### Changed
+
+- `Driver` interface now includes `UpdateRow` method.
+- `list_connections` description updated to reflect all supported types.
+- README updated with new tools, database types, configuration, and CI section.
+
 ## [1.0.1] - 2026-02-13
 
 ### Fixed
