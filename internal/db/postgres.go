@@ -136,10 +136,7 @@ func (d *PostgresDriver) InsertRow(ctx context.Context, schema, table string, ro
 	}
 	sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING *",
 		quotedTable, joinQuoted(quotedCols), placeholders)
-	params := make([]any, 0, len(vals))
-	for _, v := range vals {
-		params = append(params, v)
-	}
+	params := append([]any(nil), vals...)
 	rows, err := d.conn.Query(ctx, sql, params...)
 	if err != nil {
 		return nil, err

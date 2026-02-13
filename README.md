@@ -129,7 +129,7 @@ Read-only by default; `run_query` allows only SELECT (and read-only SQL). Writes
 
 ## CI
 
-GitHub Actions runs on every PR to `main` and on push to `main`: build, test (`-race`), and `go vet`. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+GitHub Actions runs on every PR to `main` and on push to `main`: build, test (`-race`), `go vet`, and [golangci-lint](https://golangci-lint.run/) static analysis. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [`.golangci.yml`](.golangci.yml).
 
 ## Testing
 

@@ -144,10 +144,7 @@ func (d *MySQLDriver) InsertRow(ctx context.Context, schema, table string, row m
 	if err != nil {
 		return nil, err
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, nil
-	}
+	id, _ := result.LastInsertId()
 	if id > 0 {
 		return id, nil
 	}

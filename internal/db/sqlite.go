@@ -115,10 +115,7 @@ func (d *SQLiteDriver) InsertRow(ctx context.Context, _, table string, row map[s
 	if err != nil {
 		return nil, err
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, nil // table may not have an auto-increment column
-	}
+	id, _ := result.LastInsertId()
 	if id > 0 {
 		return id, nil
 	}
