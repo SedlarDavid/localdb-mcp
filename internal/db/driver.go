@@ -4,6 +4,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -71,6 +72,30 @@ func validatePKColumns(ctx context.Context, d Driver, schema, table string, key 
 		)
 	}
 	return nil
+}
+
+// rowExistsByPK checks whether a row with the given primary-key values exists.
+// This is used by drivers where RowsAffected reports *changed* rows rather than
+// *matched* rows (MySQL, SQLite). When an UPDATE sets every column to its
+// current value, RowsAffected returns 0 even though the row exists.
+func rowExistsByPK(ctx context.Context, db sqlQueryer, table string, keyCols []string, keyVals []any, quoteIdent func(string) string) (bool, error) {
+	wheres := make([]string, len(keyCols))
+	for i, c := range keyCols {
+		wheres[i] = quoteIdent(c) + " = ?"
+	}
+	q := fmt.Sprintf("SELECT 1 FROM %s WHERE %s LIMIT 1",
+		quoteIdent(table), strings.Join(wheres, " AND "))
+	rows, err := db.QueryContext(ctx, q, keyVals...)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	return rows.Next(), rows.Err()
+}
+
+// sqlQueryer is the subset of *sql.DB needed by rowExistsByPK.
+type sqlQueryer interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
 // ColumnInfo describes one column for describe_table.

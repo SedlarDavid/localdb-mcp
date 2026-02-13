@@ -199,7 +199,18 @@ func (d *MySQLDriver) UpdateRow(ctx context.Context, schema, table string, key m
 		return 0, err
 	}
 	if n == 0 {
-		return 0, fmt.Errorf("update row: no row found with the given key")
+		// MySQL's RowsAffected reports *changed* rows, not *matched* rows.
+		// A no-op UPDATE (SET values identical to current) returns 0 even
+		// when the row exists. Check existence before reporting "not found".
+		keyCols, keyVals := mapsToColumnsAndValues(key)
+		exists, existErr := rowExistsByPK(ctx, d.db, table, keyCols, keyVals, quoteMySQLIdentifier)
+		if existErr != nil {
+			return 0, fmt.Errorf("update row: existence check: %w", existErr)
+		}
+		if !exists {
+			return 0, fmt.Errorf("update row: no row found with the given key")
+		}
+		// Row exists but values were already identical — success, 0 changed.
 	}
 	return n, nil
 }

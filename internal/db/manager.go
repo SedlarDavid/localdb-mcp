@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/SedlarDavid/localdb-mcp/internal/config"
@@ -55,11 +54,11 @@ func (m *Manager) Driver(ctx context.Context, connectionID string) (Driver, erro
 		return nil, fmt.Errorf("unsupported connection type %q for %q", typ, connectionID)
 	}
 	if err != nil {
-		// Log the full error (may contain the URI) for debugging, but
-		// return only a safe message to the caller — tool responses must
-		// never expose connection strings or credentials.
-		log.Printf("driver %q (%s): %v", connectionID, typ, err)
-		return nil, fmt.Errorf("failed to connect to %q (%s); check server logs for details", connectionID, typ)
+		// Return only a safe message — the raw error from the driver may
+		// contain the full DSN/URI (with credentials), so we must NOT
+		// log it.  Callers who need to debug connection issues should
+		// test the URI outside of the MCP server (e.g. psql, mysql CLI).
+		return nil, fmt.Errorf("failed to connect to %q (%s); verify the connection URI is correct", connectionID, typ)
 	}
 
 	m.mu.Lock()

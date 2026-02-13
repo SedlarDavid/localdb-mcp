@@ -141,6 +141,34 @@ func TestSQLite_UpdateRow_wrongKey(t *testing.T) {
 	}
 }
 
+func TestSQLite_UpdateRow_noop(t *testing.T) {
+	d := newTestSQLiteDriver(t)
+	defer d.Close()
+	ctx := context.Background()
+
+	// Insert a row.
+	_, err := d.InsertRow(ctx, "", "users", map[string]any{
+		"name":  "Alice",
+		"email": "alice@test.com",
+	})
+	if err != nil {
+		t.Fatalf("InsertRow: %v", err)
+	}
+
+	// Update with the same values — SQLite reports matched rows (not
+	// changed rows), so this should succeed with 1 row affected.
+	n, err := d.UpdateRow(ctx, "", "users",
+		map[string]any{"id": int64(1)},
+		map[string]any{"email": "alice@test.com"},
+	)
+	if err != nil {
+		t.Fatalf("UpdateRow (noop) should not error, got: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("expected 1 row affected for noop update, got %d", n)
+	}
+}
+
 func TestSQLite_UpdateRow_notFound(t *testing.T) {
 	d := newTestSQLiteDriver(t)
 	defer d.Close()
