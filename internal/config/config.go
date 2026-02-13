@@ -14,11 +14,12 @@ import (
 )
 
 // Env var names for connection strings. If set, they define connections
-// with fixed IDs "postgres", "sqlserver", and "sqlite".
+// with fixed IDs "postgres", "sqlserver", "sqlite", and "mysql".
 const (
 	EnvPostgresURI  = "MCP_DB_POSTGRES_URI"
 	EnvSQLServerURI = "MCP_DB_SQLSERVER_URI"
 	EnvSQLiteURI    = "MCP_DB_SQLITE_URI"
+	EnvMySQLURI     = "MCP_DB_MYSQL_URI"
 )
 
 // DefaultConfigDir is the directory for the optional config file.
@@ -72,6 +73,9 @@ func Load() (*Config, error) {
 	}
 	if v := os.Getenv(EnvSQLiteURI); v != "" {
 		c.connections["sqlite"] = connectionEntry{Type: "sqlite", uri: v}
+	}
+	if v := os.Getenv(EnvMySQLURI); v != "" {
+		c.connections["mysql"] = connectionEntry{Type: "mysql", uri: v}
 	}
 
 	if len(c.connections) == 0 {
@@ -155,7 +159,7 @@ func (c *Config) loadFile(path string) error {
 
 func idToType(id string) string {
 	switch id {
-	case "postgres", "sqlserver", "sqlite":
+	case "postgres", "sqlserver", "sqlite", "mysql":
 		return id
 	default:
 		return "postgres"

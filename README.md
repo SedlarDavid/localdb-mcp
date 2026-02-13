@@ -12,12 +12,12 @@
 
 - Credentials only in env or `~/.localdb-mcp/config.yaml` — never in the IDE/MCP config or tool responses.
 - Fixed tool set so the agent doesn’t need host/port/user/password.
-- Supports PostgreSQL, SQL Server, and SQLite as named connections `postgres`, `sqlserver`, and `sqlite`.
+- Supports PostgreSQL, SQL Server, SQLite, and MySQL as named connections `postgres`, `sqlserver`, `sqlite`, and `mysql`.
 
 ## Requirements
 
 - Go 1.25+
-- PostgreSQL and/or SQL Server reachable (e.g. Docker) for DB tools, or a SQLite file/`:memory:`.
+- PostgreSQL, SQL Server, MySQL reachable (e.g. Docker) for DB tools, or a SQLite file/`:memory:`.
 
 ## Quick start
 
@@ -32,8 +32,8 @@
 
 2. **Configure** (optional for `ping` and `list_connections`; needed for `list_tables`, `describe_table`, etc.)
 
-   - Env or **.env**: see **.env.example** for `MCP_DB_POSTGRES_URI`, `MCP_DB_SQLSERVER_URI`, and `MCP_DB_SQLITE_URI`. The server loads `.env` from its working directory if present; otherwise export in your shell.
-   - Optional file: `~/.localdb-mcp/config.yaml` with `connections: { postgres: "uri", sqlserver: "uri", sqlite: "/path/to/db.sqlite" }`. Env overrides file.
+   - Env or **.env**: see **.env.example** for `MCP_DB_POSTGRES_URI`, `MCP_DB_SQLSERVER_URI`, `MCP_DB_SQLITE_URI`, and `MCP_DB_MYSQL_URI`. The server loads `.env` from its working directory if present; otherwise export in your shell.
+   - Optional file: `~/.localdb-mcp/config.yaml` with `connections: { postgres: "uri", sqlserver: "uri", sqlite: "/path/to/db.sqlite", mysql: "user:pass@tcp(host:3306)/db" }`. Env overrides file.
 
 3. **Add to your MCP client** — See below for configuration examples.
 
@@ -145,7 +145,7 @@ go run ./cmd/mcpclient insert_test_row '{"connection_id":"postgres","table":"use
 - `cmd/mcpclient` — CLI to call any tool (for testing)
 - `internal/config` — env + optional `.env` (cwd) and `~/.localdb-mcp/config.yaml`
 - `internal/server` — MCP server and tool registration
-- `internal/db` — Driver interface, Postgres/SQL Server/SQLite implementations, connection manager
+- `internal/db` — Driver interface, Postgres/SQL Server/SQLite/MySQL implementations, connection manager
 
 ## Contributing
 
