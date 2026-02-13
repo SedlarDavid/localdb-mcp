@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -155,6 +156,59 @@ func (d *PostgresDriver) InsertRow(ctx context.Context, schema, table string, ro
 		return returnVals[0], nil
 	}
 	return nil, nil
+}
+
+// UpdateRow implements Driver. Validates key matches actual PK, then updates a single row.
+func (d *PostgresDriver) UpdateRow(ctx context.Context, schema, table string, key map[string]any, set map[string]any) (int64, error) {
+	if schema == "" {
+		schema = "public"
+	}
+	if len(key) == 0 {
+		return 0, fmt.Errorf("update row: key must contain at least one column")
+	}
+	if len(set) == 0 {
+		return 0, fmt.Errorf("update row: set must contain at least one column")
+	}
+
+	// Fetch actual PK columns and validate the provided key matches.
+	if err := validatePKColumns(ctx, d, schema, table, key); err != nil {
+		return 0, err
+	}
+
+	// Build SET clause: "col1" = $1, "col2" = $2, ...
+	setCols, setVals := mapsToColumnsAndValues(set)
+	quotedSets := make([]string, len(setCols))
+	for i, c := range setCols {
+		quotedSets[i] = fmt.Sprintf("%s = $%d", pgx.Identifier{c}.Sanitize(), i+1)
+	}
+
+	// Build WHERE clause: "pk1" = $N AND "pk2" = $N+1, ...
+	keyCols, keyVals := mapsToColumnsAndValues(key)
+	quotedWheres := make([]string, len(keyCols))
+	for i, c := range keyCols {
+		quotedWheres[i] = fmt.Sprintf("%s = $%d", pgx.Identifier{c}.Sanitize(), len(setCols)+i+1)
+	}
+
+	quotedTable := pgx.Identifier{schema, table}.Sanitize()
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE %s",
+		quotedTable,
+		joinQuoted(quotedSets),
+		strings.Join(quotedWheres, " AND "),
+	)
+
+	params := make([]any, 0, len(setVals)+len(keyVals))
+	params = append(params, setVals...)
+	params = append(params, keyVals...)
+
+	tag, err := d.conn.Exec(ctx, sql, params...)
+	if err != nil {
+		return 0, err
+	}
+	n := tag.RowsAffected()
+	if n == 0 {
+		return 0, fmt.Errorf("update row: no row found with the given key")
+	}
+	return n, nil
 }
 
 func mapsToColumnsAndValues(row map[string]any) (cols []string, vals []any) {
