@@ -12,7 +12,8 @@ import (
 
 // SQLServerDriver implements Driver for SQL Server using go-mssqldb.
 type SQLServerDriver struct {
-	db *sql.DB
+	db  *sql.DB
+	uri string
 }
 
 // NewSQLServerDriver connects to SQL Server using the given URI (e.g. sqlserver://user:pass@host?database=dbname).
@@ -25,7 +26,7 @@ func NewSQLServerDriver(ctx context.Context, uri string) (*SQLServerDriver, erro
 		db.Close()
 		return nil, fmt.Errorf("sqlserver ping: %w", err)
 	}
-	return &SQLServerDriver{db: db}, nil
+	return &SQLServerDriver{db: db, uri: uri}, nil
 }
 
 // Ping implements Driver.

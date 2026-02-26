@@ -11,7 +11,8 @@ import (
 
 // SQLiteDriver implements Driver for SQLite using modernc.org/sqlite (pure Go, no CGO).
 type SQLiteDriver struct {
-	db *sql.DB
+	db  *sql.DB
+	uri string
 }
 
 // NewSQLiteDriver opens a SQLite database at the given path (or URI such as "file:path?mode=...").
@@ -24,7 +25,7 @@ func NewSQLiteDriver(_ context.Context, uri string) (*SQLiteDriver, error) {
 		db.Close()
 		return nil, fmt.Errorf("sqlite ping: %w", err)
 	}
-	return &SQLiteDriver{db: db}, nil
+	return &SQLiteDriver{db: db, uri: uri}, nil
 }
 
 // Ping implements Driver.

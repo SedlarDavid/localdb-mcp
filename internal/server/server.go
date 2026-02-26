@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/SedlarDavid/localdb-mcp/internal/config"
 	"github.com/SedlarDavid/localdb-mcp/internal/db"
@@ -12,7 +13,7 @@ import (
 
 const (
 	ServerName    = "localdb-mcp"
-	ServerVersion = "1.1.0"
+	ServerVersion = "1.2.0"
 )
 
 // Register registers tools to the MCP server.
@@ -265,6 +266,83 @@ func Register(s *server.MCPServer, cfg *config.Config) {
 
 			return mcp.NewToolResultJSON(UpdateTestRowOutput{RowsAffected: n})
 		})
+
+		// Export Database
+		s.AddTool(mcp.NewTool("export_database",
+			mcp.WithDescription(
+				"Export a database to a SQL dump file using engine-native tools. "+
+					"PostgreSQL uses pg_dump, MySQL uses mysqldump, SQLite uses sqlite3 .dump, "+
+					"SQL Server generates SQL via queries. "+
+					"Requires the CLI tool to be installed on the server for PostgreSQL/MySQL/SQLite."),
+			mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID to export")),
+			mcp.WithString("path", mcp.Required(), mcp.Description("Absolute file path for the output SQL dump file")),
+		), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args, ok := request.Params.Arguments.(map[string]any)
+			if !ok {
+				return mcp.NewToolResultError("invalid arguments"), nil
+			}
+			connID, ok := args["connection_id"].(string)
+			if !ok {
+				return mcp.NewToolResultError("connection_id is required"), nil
+			}
+			path, ok := args["path"].(string)
+			if !ok {
+				return mcp.NewToolResultError("path is required"), nil
+			}
+
+			exp, err := mgr.Exporter(ctx, connID)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			if err := exp.ExportDatabase(ctx, path); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			return mcp.NewToolResultJSON(ExportDatabaseOutput{
+				Message: fmt.Sprintf("database exported to %s", path),
+			})
+		})
+
+		// Import Database
+		s.AddTool(mcp.NewTool("import_database",
+			mcp.WithDescription(
+				"Import a SQL dump file into a database using engine-native tools. "+
+					"WARNING: This is a DESTRUCTIVE operation that may overwrite existing data. "+
+					"PostgreSQL uses psql, MySQL uses mysql CLI, SQLite uses sqlite3, "+
+					"SQL Server uses sqlcmd. Requires the CLI tool to be installed on the server."),
+			mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID to import into")),
+			mcp.WithString("path", mcp.Required(), mcp.Description("Absolute file path of the SQL dump file to import")),
+			mcp.WithBoolean("confirm_destructive", mcp.Required(), mcp.Description("Must be set to true to confirm this destructive operation")),
+		), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args, ok := request.Params.Arguments.(map[string]any)
+			if !ok {
+				return mcp.NewToolResultError("invalid arguments"), nil
+			}
+			connID, ok := args["connection_id"].(string)
+			if !ok {
+				return mcp.NewToolResultError("connection_id is required"), nil
+			}
+			path, ok := args["path"].(string)
+			if !ok {
+				return mcp.NewToolResultError("path is required"), nil
+			}
+			confirmed, _ := args["confirm_destructive"].(bool)
+			if !confirmed {
+				return mcp.NewToolResultError(
+					"import_database is destructive and may overwrite existing data; " +
+						"set confirm_destructive=true to proceed"), nil
+			}
+
+			exp, err := mgr.Exporter(ctx, connID)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			if err := exp.ImportDatabase(ctx, path); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			return mcp.NewToolResultJSON(ImportDatabaseOutput{
+				Message: fmt.Sprintf("database imported from %s", path),
+			})
+		})
 	}
 }
 
@@ -301,4 +379,14 @@ type InsertTestRowOutput struct {
 // UpdateTestRowOutput is the result of update_test_row.
 type UpdateTestRowOutput struct {
 	RowsAffected int64 `json:"rows_affected"`
+}
+
+// ExportDatabaseOutput is the result of export_database.
+type ExportDatabaseOutput struct {
+	Message string `json:"message"`
+}
+
+// ImportDatabaseOutput is the result of import_database.
+type ImportDatabaseOutput struct {
+	Message string `json:"message"`
 }

@@ -5,7 +5,7 @@
 [![release](https://img.shields.io/github/v/release/SedlarDavid/localdb-mcp)](https://github.com/SedlarDavid/localdb-mcp/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/SedlarDavid/localdb-mcp)](https://goreportcard.com/report/github.com/SedlarDavid/localdb-mcp)
 
-**v1.1.0** — Local [MCP](https://modelcontextprotocol.io/) server that gives AI agents and LLMs (e.g. Cursor, Claude Code, other MCP clients) access to your databases **without exposing credentials** to the model. The server runs on your machine, reads connection details from env or config, and exposes a fixed set of tools (see [Tools](#tools) below). Agents call tools by name; connection strings stay in the server process.
+**v1.2.0** — Local [MCP](https://modelcontextprotocol.io/) server that gives AI agents and LLMs (e.g. Cursor, Claude Code, other MCP clients) access to your databases **without exposing credentials** to the model. The server runs on your machine, reads connection details from env or config, and exposes a fixed set of tools (see [Tools](#tools) below). Agents call tools by name; connection strings stay in the server process.
 
 ## Use with agents / LLMs
 
@@ -115,10 +115,14 @@ If using an MCP extension in VS Code, you typically add it to `.vscode/settings.
 | `run_query` (read-only) | `connection_id`, `sql`, optional `params` → rows. Rejects INSERT/UPDATE/DELETE/DDL. |
 | `insert_test_row` | `connection_id`, `table`, `row`, optional `schema`, `return_id` → optional `inserted_id` |
 | `update_test_row` | `connection_id`, `table`, `key` (PK), `set` (values), optional `schema` → `rows_affected` |
+| `export_database` | `connection_id`, `path` → exports database to SQL dump file using engine-native tools |
+| `import_database` | `connection_id`, `path`, `confirm_destructive` → imports SQL dump file (destructive) |
 
 ## Safety
 
 Read-only by default; `run_query` allows only SELECT (and read-only SQL). Writes only via `insert_test_row` and `update_test_row`. `update_test_row` enforces primary-key-only targeting — it validates that the `key` columns match the table's actual PK to prevent mass updates. No DDL. Credentials are never included in tool results or logs.
+
+`export_database` and `import_database` use engine-native CLI tools (pg_dump/psql, mysqldump/mysql, sqlite3, sqlcmd). Import requires explicit `confirm_destructive=true` since it may overwrite data. SQL Server export uses pure Go (no external tool needed); all other engines require the respective CLI tool installed on the server.
 
 ---
 
@@ -147,6 +151,8 @@ go run ./cmd/mcpclient describe_table '{"connection_id":"postgres","table":"user
 go run ./cmd/mcpclient run_query '{"connection_id":"postgres","sql":"SELECT 1"}'
 go run ./cmd/mcpclient insert_test_row '{"connection_id":"postgres","table":"users","row":{"name":"Test"}}'
 go run ./cmd/mcpclient update_test_row '{"connection_id":"postgres","table":"users","key":{"id":1},"set":{"name":"Updated"}}'
+go run ./cmd/mcpclient export_database '{"connection_id":"postgres","path":"/tmp/dump.sql"}'
+go run ./cmd/mcpclient import_database '{"connection_id":"postgres","path":"/tmp/dump.sql","confirm_destructive":true}'
 ```
 
 ## Layout

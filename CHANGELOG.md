@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-02-26
+
+### Added
+
+- **`export_database` tool.** Export a database to a SQL dump file using
+  engine-native CLI tools. PostgreSQL uses `pg_dump`, MySQL uses `mysqldump`,
+  SQLite uses `sqlite3 .dump`, SQL Server generates SQL via pure Go queries.
+  On macOS, automatically discovers Homebrew-installed versioned PostgreSQL
+  binaries (e.g. `postgresql@18`).
+- **`import_database` tool.** Import a SQL dump file into a database using
+  engine-native CLI tools. PostgreSQL uses `psql`, MySQL uses `mysql` CLI,
+  SQLite uses `sqlite3`, SQL Server uses `sqlcmd`. Requires explicit
+  `confirm_destructive=true` parameter since this is a destructive operation.
+- **`Exporter` interface.** New optional interface in the `db` package,
+  separate from `Driver`, keeping the existing contract clean.
+- Shared CLI utilities for path validation, tool discovery, and safe external
+  command execution with credential-safe error reporting.
+
+### Changed
+
+- All driver structs now store their connection URI/DSN for CLI tool usage.
+- README updated with new tools and safety documentation.
+
 ## [1.1.0] - 2026-02-13
 
 ### Added
@@ -67,6 +90,7 @@ All notable changes to this project will be documented in this file.
 - Credentials never exposed in tool responses or logs.
 - cmd/mcpclient CLI for testing tool calls.
 
+[1.2.0]: https://github.com/SedlarDavid/localdb-mcp/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/SedlarDavid/localdb-mcp/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/SedlarDavid/localdb-mcp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/SedlarDavid/localdb-mcp/releases/tag/v1.0.0

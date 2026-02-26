@@ -73,6 +73,19 @@ func (m *Manager) Driver(ctx context.Context, connectionID string) (Driver, erro
 	return newDriver, nil
 }
 
+// Exporter returns an Exporter for the given connection ID, if the driver supports it.
+func (m *Manager) Exporter(ctx context.Context, connectionID string) (Exporter, error) {
+	d, err := m.Driver(ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	exp, ok := d.(Exporter)
+	if !ok {
+		return nil, fmt.Errorf("driver for %q does not support export/import", connectionID)
+	}
+	return exp, nil
+}
+
 // Close closes all cached drivers. Call when shutting down.
 func (m *Manager) Close() error {
 	m.mu.Lock()

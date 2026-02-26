@@ -11,7 +11,8 @@ import (
 
 // MySQLDriver implements Driver for MySQL using go-sql-driver/mysql.
 type MySQLDriver struct {
-	db *sql.DB
+	db  *sql.DB
+	dsn string
 }
 
 // NewMySQLDriver connects to MySQL using the given DSN
@@ -25,7 +26,7 @@ func NewMySQLDriver(ctx context.Context, dsn string) (*MySQLDriver, error) {
 		db.Close()
 		return nil, fmt.Errorf("mysql ping: %w", err)
 	}
-	return &MySQLDriver{db: db}, nil
+	return &MySQLDriver{db: db, dsn: dsn}, nil
 }
 
 // Ping implements Driver.

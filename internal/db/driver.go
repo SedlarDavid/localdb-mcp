@@ -98,6 +98,19 @@ type sqlQueryer interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
+// Exporter is an optional interface that drivers can implement to support
+// database export and import via engine-native CLI tools.
+type Exporter interface {
+	// ExportDatabase dumps the database to the given file path using
+	// the engine-native CLI tool (pg_dump, mysqldump, sqlite3, sqlcmd).
+	ExportDatabase(ctx context.Context, path string) error
+
+	// ImportDatabase loads a dump file into the database using the
+	// engine-native CLI tool (psql, mysql, sqlite3, sqlcmd).
+	// This is a destructive operation that may overwrite existing data.
+	ImportDatabase(ctx context.Context, path string) error
+}
+
 // ColumnInfo describes one column for describe_table.
 type ColumnInfo struct {
 	Name     string `json:"name"`

@@ -11,6 +11,7 @@ import (
 // PostgresDriver implements Driver for PostgreSQL using pgx.
 type PostgresDriver struct {
 	conn *pgx.Conn
+	uri  string
 }
 
 // NewPostgresDriver connects to PostgreSQL using the given URI.
@@ -19,7 +20,7 @@ func NewPostgresDriver(ctx context.Context, uri string) (*PostgresDriver, error)
 	if err != nil {
 		return nil, fmt.Errorf("postgres connect: %w", err)
 	}
-	return &PostgresDriver{conn: conn}, nil
+	return &PostgresDriver{conn: conn, uri: uri}, nil
 }
 
 // Ping implements Driver.
