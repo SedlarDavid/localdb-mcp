@@ -2,8 +2,6 @@
 
 [![CI](https://github.com/SedlarDavid/localdb-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/SedlarDavid/localdb-mcp/actions/workflows/ci.yml)
 [![license](https://img.shields.io/github/license/SedlarDavid/localdb-mcp)](LICENSE)
-[![release](https://img.shields.io/github/v/release/SedlarDavid/localdb-mcp)](https://github.com/SedlarDavid/localdb-mcp/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/SedlarDavid/localdb-mcp)](https://goreportcard.com/report/github.com/SedlarDavid/localdb-mcp)
 
 **v1.2.0** — Local [MCP](https://modelcontextprotocol.io/) server that gives AI agents and LLMs (e.g. Cursor, Claude Code, other MCP clients) access to your databases **without exposing credentials** to the model. The server runs on your machine, reads connection details from env or config, and exposes a fixed set of tools (see [Tools](#tools) below). Agents call tools by name; connection strings stay in the server process.
 
